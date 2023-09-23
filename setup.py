@@ -32,14 +32,16 @@ setup(
     version = get_version(),
     packages = find_packages(
         exclude = [
-            'examples.*'
+            "examples.*"
         ]
     ),
     url = "https://github.com/arynyklas/telegram_bot_logger",
     author = "Aryn Yklas",
-    requires_python = ">=3.7",
+    python_requires = ">=3.7",
     author_email = "arynyklas@gmail.com",
-    description = "Is a simple and synchronous logging handlers with sending logs to Telegram.",
+    description = "It is a library that allows you to send logging logs to Telegram",
+    long_description = (WORK_DIR / "README.md").read_text("utf-8"),
+    long_description_content_type = "text/markdown",
     classifiers = [
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
