@@ -1,6 +1,6 @@
-from . import handlers, formatters, api_server, utils
+from . import handlers, formatters, api_server, utils, exceptions
 
 from .handlers import TelegramMessageHandler
 
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"

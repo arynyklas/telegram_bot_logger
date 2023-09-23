@@ -21,10 +21,10 @@ logger: logging.Logger = logging.getLogger(__name__)
 class TelegramMessageHandler(QueueHandler):
     def __init__(
         self,
-        chat_ids: Union[int, str, CHAT_IDS_T],
         bot_token: str,
+        chat_ids: Union[int, str, CHAT_IDS_T],
         api_server: Optional[_api_server.TelegramAPIServer]=_api_server.PRODUCTION_SERVER,
-        format_type: Optional[formatters.FormatTypes]=formatters.FormatTypes.TEXT,
+        format_type: Optional[Union[formatters.FormatType, str]]=formatters.FormatType.TEXT,
         proxies: Optional[PROXIES_T]=None,
         formatter: Optional[formatters.TelegramBaseFormatter]=formatters.TelegramHTMLTextFormatter(),
         additional_body: Optional[ADDITIONAL_BODY_T]=None
@@ -38,9 +38,18 @@ class TelegramMessageHandler(QueueHandler):
             queue = self.queue
         )
 
+        if isinstance(format_type, str):
+            try:
+                format_type = formatters.FormatType.__getitem__(format_type.upper())
+            except KeyError:
+                pass
+
+        if not isinstance(format_type, formatters.FormatType):
+            raise ValueError("Only string or enum of formatters.FormatType can be passed.")
+
         self.handler: InnerTelegramMessageHandler = InnerTelegramMessageHandler(
-            chat_ids = chat_ids,
             bot_token = bot_token,
+            chat_ids = chat_ids,
             api_server = api_server,
             format_type = format_type,
             proxies = proxies,
@@ -60,7 +69,7 @@ class TelegramMessageHandler(QueueHandler):
 
     def setFormatter(self, formatter: formatters.TelegramBaseFormatter) -> None:
         if not isinstance(formatter, formatters.TelegramBaseFormatter):
-            raise ValueError("Formatter class must be subclass of telegram_bot_logger.formatters.TelegramBaseFormatter")
+            raise ValueError("Formatter class must be subclass of formatters.TelegramBaseFormatter")
 
         self.handler.setFormatter(
             fmt = formatter
@@ -77,28 +86,26 @@ class TelegramMessageHandler(QueueHandler):
 class InnerTelegramMessageHandler(logging.Handler):
     def __init__(
         self,
-        chat_ids: CHAT_IDS_T,
         bot_token: str,
+        chat_ids: CHAT_IDS_T,
         api_server: _api_server.TelegramAPIServer,
-        format_type: formatters.FormatTypes,
+        format_type: formatters.FormatType,
         proxies: Optional[PROXIES_T]=None,
-        additional_body: Optional[ADDITIONAL_BODY_T]=None,
-        *args,
-        **kwargs
+        additional_body: Optional[ADDITIONAL_BODY_T]=None
     ):
-        self.chat_ids: CHAT_IDS_T = chat_ids
         self.bot_token: str = bot_token
+        self.chat_ids: CHAT_IDS_T = chat_ids
         self.api_server: _api_server.TelegramAPIServer = api_server
-        self.format_type: formatters.FormatTypes = format_type
+        self.format_type: formatters.FormatType = format_type
         self.additional_body: ADDITIONAL_BODY_T = additional_body or dict()
 
         self.http_client: _HTTPClient = _HTTPClient(
             proxies = proxies
         )
 
-        super().__init__(*args, **kwargs)
+        super().__init__()
 
-        self.formatter: Union[formatters.TelegramBaseFormatter, None] = None
+        self.formatter: formatters.TelegramBaseFormatter
 
     def _build_http_request_body(self, chat_id: int) -> REQUEST_BODY_T:
         request_body: ADDITIONAL_BODY_T = self.additional_body.copy()
@@ -111,8 +118,7 @@ class InnerTelegramMessageHandler(logging.Handler):
 
     def _check_telegram_answer(self, http_response: _HTTPResponse, chat_id: int) -> None:
         if http_response.status_code != 200:
-            logger.warning(f"Request to telegram got error with code: {http_response.status_code}")
-            logger.warning(f"Response is: {http_response.text}")
+            logger.warning(f"Request to Telegram got error: {http_response.status_code} | {http_response.text}")
 
         response_dict: dict = http_response.json()
 
@@ -174,32 +180,31 @@ class InnerTelegramMessageHandler(logging.Handler):
             record = record
         )
 
-        if self.format_type == formatters.FormatTypes.TEXT:
+        if self.format_type == formatters.FormatType.TEXT:
             text_fragments: formatters.TEXT_FRAGMENTS_T = self.formatter.format_by_fragments(
                 record = record
             )
 
         else:
-            bytes_content: bytes = self.formatter.format(
+            bytes_content: bytes = self.formatter.format_raw(
                 record = record
             ).encode("utf-8")
 
             tag_text: Union[str, None] = (
-                getattr(
-                    self.formatter,
-                    "get_record_tag"
-                )(record)
-                if hasattr(self.formatter, "get_record_tag")
+                self.formatter.format_tag(
+                    record = record
+                )
+                if self.formatter.format_tag != formatters.TelegramBaseFormatter.format_tag
                 else
                 None
             )
 
         for chat_id in self.chat_ids:
-            if self.format_type == formatters.FormatTypes.TEXT:
-                for text in text_fragments:
+            if self.format_type == formatters.FormatType.TEXT:
+                for text_fragment in text_fragments:
                     self.send_text_message(
                         chat_id = chat_id,
-                        text = text
+                        text = text_fragment
                     )
 
             else:
