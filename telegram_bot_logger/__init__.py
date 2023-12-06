@@ -1,6 +1,6 @@
-from . import handlers, formatters, api_server, utils, exceptions
+from . import handlers, formatters, api_server, utils, exceptions # noqa
 
-from .handlers import TelegramMessageHandler
+from .handlers import TelegramMessageHandler # noqa
 
 
-__version__ = "0.0.2.post0"
+__version__ = "0.0.3"

@@ -15,6 +15,11 @@ class FormatType(_Enum):
     DOCUMENT = _enum_auto()
 
 
+class DocumentNameStrategy(_Enum):
+    TIMESTAMP = _enum_auto()
+    ARGUMENT = _enum_auto()
+
+
 class TelegramBaseFormatter(logging.Formatter):
     PARSE_MODE: Union[str, None] = None
 
