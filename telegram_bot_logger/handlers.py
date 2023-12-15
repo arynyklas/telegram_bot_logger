@@ -73,9 +73,10 @@ class TelegramMessageHandler(QueueHandler):
         if not isinstance(document_name_strategy, formatters.DocumentNameStrategy):
             raise ValueError("Only string or enum of formatters.DocumentNameStrategy can be passed.")
 
-        self.setLevel(
-            level = level
-        )
+        if level:
+            self.setLevel(
+                level = level
+            )
 
         self.handler: InnerTelegramMessageHandler = InnerTelegramMessageHandler(
             bot_token = bot_token,
@@ -247,7 +248,7 @@ class InnerTelegramMessageHandler(logging.Handler):
                         str(int(record.created))
                         if self.document_name_strategy == formatters.DocumentNameStrategy.TIMESTAMP
                         else
-                        record.args[0]
+                        record.__dict__["document_name"]
                     ),
                     bytes_content = bytes_content,
                     text = tag_text

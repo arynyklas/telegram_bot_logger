@@ -54,7 +54,7 @@ logger.addHandler(handler)
 
 logger.debug("debug-message")
 # Or:
-logger.debug("debug-message", 0) # 0 is argument; to use this feature you need to set format_type = formatters.FormatType.DOCUMENT and document_name_strategy = formatters.DocumentNameStrategy.ARGUMENT
+logger.debug("debug-message", extra={"document_name": 123}) # 123 is an argument; to use this feature you need to set format_type = formatters.FormatType.DOCUMENT and document_name_strategy = formatters.DocumentNameStrategy.ARGUMENT
 ```
 
 Replace `YOUR_BOT_TOKEN` and `chat_ids` with your actual bot token and chat IDs. You can obtain a bot token by creating a new bot on Telegram and obtaining it from the [BotFather](https://t.me/BotFather).
