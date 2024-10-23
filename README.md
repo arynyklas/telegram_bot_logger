@@ -28,7 +28,7 @@ logger = logging.getLogger("telegram_bot_logger_example")
 handler = telegram_bot_logger.TelegramMessageHandler(
     bot_token = "YOUR_BOT_TOKEN", # Required; bot's token from @BotFather
     chat_ids = [
-        12345678,
+        12345678,  # For group chat id, make sure you pass the chat id as integer  
         "@username"
     ], # Required; you can pass id as integer or username as string
     api_server = telegram_bot_logger.api_server.TelegramAPIServer(
@@ -55,6 +55,13 @@ logger.addHandler(handler)
 logger.debug("debug-message")
 # Or:
 logger.debug("debug-message", extra={"document_name": 123}) # 123 is an argument; to use this feature you need to set format_type = formatters.FormatType.DOCUMENT and document_name_strategy = formatters.DocumentNameStrategy.ARGUMENT
+```
+
+This logging handler creates a daemon background thread. The thread is closed with Python's `atexit` handler. However for some applications, like pytest, to cleanly shut down, you may need to shutdown the handler manually.
+
+```python
+# Release any background threads created by the Telegram logging handler
+handler.close()
 ```
 
 Replace `YOUR_BOT_TOKEN` and `chat_ids` with your actual bot token and chat IDs. You can obtain a bot token by creating a new bot on Telegram and obtaining it from the [BotFather](https://t.me/BotFather).

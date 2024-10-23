@@ -18,6 +18,21 @@ REQUEST_BODY_T = Dict[str, Any]
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+class DebugQueueListener(QueueListener):
+    """If our background thread fails, we need to have at least some indication about it.
+
+    We just dump the exception to the stdout.
+    """
+    def handle(self, record):
+        try:
+            super().handle(record)
+        except Exception as e:
+            print(f"Error handling record: {e}")
+            print(f"Record: {vars(record)}")
+            import traceback
+            traceback.print_exc()
+
+
 class TelegramMessageHandler(QueueHandler):
     def __init__(
         self,
@@ -111,7 +126,10 @@ class TelegramMessageHandler(QueueHandler):
         return record
 
     def close(self) -> None:
-        self.listener.stop()
+        if self.listener is not None:
+            # Avoid double shutdown
+            self.listener.stop()
+            self.listener = None
         super().close()
 
 
