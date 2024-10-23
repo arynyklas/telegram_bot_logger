@@ -79,6 +79,7 @@ except Exception as e:
 
 ```
 
+![exception](./screenshot-exception.png)
 
 ## Closing the handler
 
