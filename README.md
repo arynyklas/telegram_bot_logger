@@ -18,6 +18,8 @@ pip install telegram-bot-logger
 
 ## Usage
 
+Replace `YOUR_BOT_TOKEN` and `chat_ids` with your actual bot token and chat IDs. You can obtain a bot token by creating a new bot on Telegram and obtaining it from the [BotFather](https://t.me/BotFather).
+
 ```python
 import telegram_bot_logger
 
@@ -58,7 +60,25 @@ logger.debug("debug-message")
 logger.debug("debug-message", extra={"document_name": 123}) # 123 is an argument; to use this feature you need to set format_type = formatters.FormatType.DOCUMENT and document_name_strategy = formatters.DocumentNameStrategy.ARGUMENT
 ```
 
-Replace `YOUR_BOT_TOKEN` and `chat_ids` with your actual bot token and chat IDs. You can obtain a bot token by creating a new bot on Telegram and obtaining it from the [BotFather](https://t.me/BotFather).
+It is highly recommend using string formatters in log messages, as these are not expanded if the logging level is not high enough,
+making difference in performance critical applications:
+
+```python
+# Use string formatter to avoid formatting an excessive log message argument 
+long_list = list(range(1000))
+logger.info("My long list is: %s", long_list)
+```
+
+You can also show tracebacks:
+
+```python
+try:
+    raise RuntimeError("Ooops I did it again")
+except Exception as e:
+    logger.exception(e)
+
+```
+
 
 ## Closing the handler
 
