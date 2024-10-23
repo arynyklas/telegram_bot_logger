@@ -31,6 +31,7 @@ class DebugQueueListener(QueueListener):
             print(f"Record: {vars(record)}")
             import traceback
             traceback.print_exc()
+            raise
 
 
 class TelegramMessageHandler(QueueHandler):
