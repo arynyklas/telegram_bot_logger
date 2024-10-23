@@ -61,6 +61,9 @@ class TelegramMessageHandler(QueueHandler):
                 if not chat_id:
                     raise ValueError(f"Chat id {chat_id!r} is incorrect!")
 
+                if chat_id[0] == "-":
+                    raise ValueError(f"Pass group chat ids as integers, not strings")
+
                 if chat_id[0] != "@":
                     chat_ids[index] = "@" + chat_id
 
