@@ -1,8 +1,9 @@
 from logging.handlers import QueueHandler, QueueListener
 from queue import Queue
-from httpx import Client as _HTTPClient, Response as _HTTPResponse
+from httpx import Client as _HTTPClient, Response as _HTTPResponse, HTTPTransport as _HTTPTransport
 
 import logging
+import traceback
 
 from . import formatters, api_server as _api_server
 
@@ -16,6 +17,24 @@ REQUEST_BODY_T = Dict[str, Any]
 
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+class DebugQueueListener(QueueListener):
+    """If our background thread fails, we need to have at least some indication about it.
+
+    We just dump the exception to the stdout.
+    """
+    def handle(self, record) -> None:
+        try:
+            super().handle(record)
+
+        except Exception as e:
+            print(f"Error handling record: {e}")
+            print(f"Record: {vars(record)}")
+
+            traceback.print_exc()
+
+            raise
 
 
 class TelegramMessageHandler(QueueHandler):
@@ -111,7 +130,11 @@ class TelegramMessageHandler(QueueHandler):
         return record
 
     def close(self) -> None:
-        self.listener.stop()
+        if self.listener is not None:
+            # Avoid double shutdown
+            self.listener.stop()
+            self.listener = None
+
         super().close()
 
 
@@ -124,7 +147,9 @@ class InnerTelegramMessageHandler(logging.Handler):
         format_type: formatters.FormatType,
         document_name_strategy: formatters.DocumentNameStrategy,
         proxies: Optional[PROXIES_T]=None,
-        additional_body: Optional[ADDITIONAL_BODY_T]=None
+        additional_body: Optional[ADDITIONAL_BODY_T]=None,
+        retries=3,
+        timeout=10.0,
     ):
         self.bot_token: str = bot_token
         self.chat_ids: CHAT_IDS_T = chat_ids
@@ -133,13 +158,19 @@ class InnerTelegramMessageHandler(logging.Handler):
         self.document_name_strategy: formatters.DocumentNameStrategy = document_name_strategy
         self.additional_body: ADDITIONAL_BODY_T = additional_body or dict()
 
+        transport = _HTTPTransport(retries=retries)
+
         self.http_client: _HTTPClient = _HTTPClient(
-            proxies = proxies
+            proxies = proxies,
+            transport=transport,
+            timeout=timeout,
         )
 
         super().__init__()
 
         self.formatter: formatters.TelegramBaseFormatter
+
+        self.reentry_barrier = False
 
     def _build_http_request_body(self, chat_id: int) -> REQUEST_BODY_T:
         request_body: ADDITIONAL_BODY_T = self.additional_body.copy()
