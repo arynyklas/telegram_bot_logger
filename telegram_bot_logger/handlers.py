@@ -266,7 +266,6 @@ class InnerTelegramMessageHandler(logging.Handler):
 
         for chat_id in self.chat_ids:
             if self.format_type == formatters.FormatType.TEXT:
-                print("text fg", len(text_fragments), [len(text_fragment) for text_fragment in text_fragments])
                 for text_fragment in text_fragments:
                     self.send_text_message(
                         chat_id = chat_id,
