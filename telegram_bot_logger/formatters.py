@@ -1,9 +1,6 @@
-from distutils.command.install import install
 from enum import Enum as _Enum, auto as _enum_auto
 
 import logging
-from logging import exception
-from math import isnan
 
 from . import utils
 
@@ -40,10 +37,10 @@ class TelegramBaseFormatter(logging.Formatter):
         raise NotImplementedError
 
     def prepare(self, record: logging.LogRecord) -> None:
-        message: str = record.msg
+        message: Union[str, Exception] = record.msg
 
         # message can be also Exception
-        if type(message) == str:
+        if type(message) == str:  # noqa
             if len(message) > self._MAX_MESSAGE_SIZE + self._MESSAGE_CONTINUE_LENGTH:
                 message = message[:self._MAX_MESSAGE_SIZE] + self._MESSAGE_CONTINUE
 
@@ -116,32 +113,32 @@ class TelegramHTMLTextFormatter(TelegramBaseFormatter):
         )
 
     def format(self, record: logging.LogRecord) -> str:
-
         exc_info = record.exc_info
 
         if isinstance(record.msg, Exception):
             # Handle logging.exception(e), msg is empty
             formatted_msg = ""
+
         elif record.args:
             # Expand %s, %d, etc. contained in the log message,
             # See logging.PercentStyle for example
-
             try:
                 formatted_msg = record.msg % record.args
             except Exception as e:
                 # Bad number of args fallback.
                 # This is never reached if we have other logging handlers installed.
                 raise TypeError(f"Could not format: {record.msg}, args {record.args}") from e
+
         else:
             # Nothing to expand
             formatted_msg = record.msg
 
         if exc_info:
             description = self._DESCRIPTION_FORMAT.format(
-                description=self._html_code_description(
-                    string=utils.html_escape(
+                description = self._html_code_description(
+                    string = utils.html_escape(
                         self.formatException(
-                            ei=exc_info
+                            ei = exc_info
                         )
                     )
                 )
@@ -156,7 +153,7 @@ class TelegramHTMLTextFormatter(TelegramBaseFormatter):
             func_name = utils.html_escape(record.funcName),
             lineno = record.lineno,
             message = utils.html_escape(formatted_msg),
-            description = description,
+            description = description
         )
 
     def format_raw(self, record: logging.LogRecord) -> str:

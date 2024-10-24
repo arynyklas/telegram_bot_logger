@@ -1,8 +1,9 @@
 from logging.handlers import QueueHandler, QueueListener
 from queue import Queue
-from httpx import Client as _HTTPClient, Response as _HTTPResponse, HTTPTransport
+from httpx import Client as _HTTPClient, Response as _HTTPResponse, HTTPTransport as _HTTPTransport
 
 import logging
+import traceback
 
 from . import formatters, api_server as _api_server
 
@@ -23,14 +24,16 @@ class DebugQueueListener(QueueListener):
 
     We just dump the exception to the stdout.
     """
-    def handle(self, record):
+    def handle(self, record) -> None:
         try:
             super().handle(record)
+
         except Exception as e:
             print(f"Error handling record: {e}")
             print(f"Record: {vars(record)}")
-            import traceback
+
             traceback.print_exc()
+
             raise
 
 
@@ -61,9 +64,6 @@ class TelegramMessageHandler(QueueHandler):
             if chat_id_class == str:
                 if not chat_id:
                     raise ValueError(f"Chat id {chat_id!r} is incorrect!")
-
-                if chat_id[0] == "-":
-                    raise ValueError(f"Pass group chat ids as integers, not strings")
 
                 if chat_id[0] != "@":
                     chat_ids[index] = "@" + chat_id
@@ -134,6 +134,7 @@ class TelegramMessageHandler(QueueHandler):
             # Avoid double shutdown
             self.listener.stop()
             self.listener = None
+
         super().close()
 
 
@@ -147,8 +148,8 @@ class InnerTelegramMessageHandler(logging.Handler):
         document_name_strategy: formatters.DocumentNameStrategy,
         proxies: Optional[PROXIES_T]=None,
         additional_body: Optional[ADDITIONAL_BODY_T]=None,
-        retries=3,  # How many times attempt,
-        timeout=10.0,  # Read timeout seconds when Telegram API is overloaded
+        retries=3,
+        timeout=10.0,
     ):
         self.bot_token: str = bot_token
         self.chat_ids: CHAT_IDS_T = chat_ids
@@ -157,8 +158,7 @@ class InnerTelegramMessageHandler(logging.Handler):
         self.document_name_strategy: formatters.DocumentNameStrategy = document_name_strategy
         self.additional_body: ADDITIONAL_BODY_T = additional_body or dict()
 
-        # If Telegram is throttling us, try POST again
-        transport = HTTPTransport(retries=retries)
+        transport = _HTTPTransport(retries=retries)
 
         self.http_client: _HTTPClient = _HTTPClient(
             proxies = proxies,
@@ -241,58 +241,47 @@ class InnerTelegramMessageHandler(logging.Handler):
         )
 
     def emit(self, record: logging.LogRecord) -> None:
+        self.formatter.prepare(
+            record = record
+        )
 
-        if self.reentry_barrier:
-            # Don't let Telegram and request internals to cause logging
-            # and thus infinite recursion. This is because the underlying
-            # requests package itself uses logging.
-            return
-
-        self.reentry_barrier = True
-
-        try:
-            self.formatter.prepare(
+        if self.format_type == formatters.FormatType.TEXT:
+            text_fragments: formatters.TEXT_FRAGMENTS_T = self.formatter.format_by_fragments(
                 record = record
             )
 
-            if self.format_type == formatters.FormatType.TEXT:
-                text_fragments: formatters.TEXT_FRAGMENTS_T = self.formatter.format_by_fragments(
+        else:
+            bytes_content: bytes = self.formatter.format_raw(
+                record = record
+            ).encode("utf-8")
+
+            tag_text: Union[str, None] = (
+                self.formatter.format_tag(
                     record = record
                 )
+                if self.formatter.format_tag != formatters.TelegramBaseFormatter.format_tag
+                else
+                None
+            )
+
+        for chat_id in self.chat_ids:
+            if self.format_type == formatters.FormatType.TEXT:
+                print("text fg", len(text_fragments), [len(text_fragment) for text_fragment in text_fragments])
+                for text_fragment in text_fragments:
+                    self.send_text_message(
+                        chat_id = chat_id,
+                        text = text_fragment
+                    )
 
             else:
-                bytes_content: bytes = self.formatter.format_raw(
-                    record = record
-                ).encode("utf-8")
-
-                tag_text: Union[str, None] = (
-                    self.formatter.format_tag(
-                        record = record
-                    )
-                    if self.formatter.format_tag != formatters.TelegramBaseFormatter.format_tag
-                    else
-                    None
+                self.send_document_message(
+                    chat_id = chat_id,
+                    filename = (
+                        str(int(record.created))
+                        if self.document_name_strategy == formatters.DocumentNameStrategy.TIMESTAMP
+                        else
+                        record.__dict__["document_name"]
+                    ),
+                    bytes_content = bytes_content,
+                    text = tag_text
                 )
-
-            for chat_id in self.chat_ids:
-                if self.format_type == formatters.FormatType.TEXT:
-                    for text_fragment in text_fragments:
-                        self.send_text_message(
-                            chat_id = chat_id,
-                            text = text_fragment
-                        )
-
-                else:
-                    self.send_document_message(
-                        chat_id = chat_id,
-                        filename = (
-                            str(int(record.created))
-                            if self.document_name_strategy == formatters.DocumentNameStrategy.TIMESTAMP
-                            else
-                            record.__dict__["document_name"]
-                        ),
-                        bytes_content = bytes_content,
-                        text = tag_text
-                    )
-        finally:
-            self.reentry_barrier = False
