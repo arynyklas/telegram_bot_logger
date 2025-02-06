@@ -18,11 +18,11 @@ class TelegramAPIServer:
         base = base.rstrip("/")
 
         return cls(
-            base=f"{base}/bot{{token}}/{{method}}",
+            base = f"{base}/bot{{token}}/{{method}}",
             **kwargs,
         )
 
 
-PRODUCTION_SERVER: TelegramAPIServer = TelegramAPIServer(
+PRODUCTION_SERVER = TelegramAPIServer(
     base = "https://api.telegram.org/bot{bot_token}/{method}"
 )

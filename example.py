@@ -3,9 +3,9 @@ import telegram_bot_logger
 import logging
 
 
-logger: logging.Logger = logging.getLogger("telegram_bot_logger_example")
+logger = logging.getLogger("telegram_bot_logger_example")
 
-handler: telegram_bot_logger.TelegramMessageHandler = telegram_bot_logger.TelegramMessageHandler(
+handler = telegram_bot_logger.TelegramMessageHandler(
     bot_token = input("Enter bot token: "),
     chat_ids = [
         int(input("Enter chat ID: "))
@@ -14,9 +14,7 @@ handler: telegram_bot_logger.TelegramMessageHandler = telegram_bot_logger.Telegr
     document_name_strategy = input("Enter document name strategy (or skip): ").strip() or telegram_bot_logger.formatters.DocumentNameStrategy.TIMESTAMP
 )
 
-logger.setLevel(
-    level = logging.DEBUG
-)
+logger.setLevel(logging.DEBUG)
 
 logger.addHandler(handler)
 

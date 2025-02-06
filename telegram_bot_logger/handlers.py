@@ -1,7 +1,7 @@
 from logging.handlers import QueueHandler, QueueListener
 from queue import Queue
-from httpx import Client as _HTTPClient, Response as _HTTPResponse, HTTPTransport as _HTTPTransport
 
+import httpx
 import logging
 import traceback
 
@@ -16,7 +16,7 @@ ADDITIONAL_BODY_T = Dict[str, Any]
 REQUEST_BODY_T = Dict[str, Any]
 
 
-logger: logging.Logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class DebugQueueListener(QueueListener):
@@ -42,33 +42,31 @@ class TelegramMessageHandler(QueueHandler):
         self,
         bot_token: str,
         chat_ids: Union[int, str, CHAT_IDS_T],
-        api_server: Optional[_api_server.TelegramAPIServer]=_api_server.PRODUCTION_SERVER,
-        format_type: Optional[Union[formatters.FormatType, str]]=formatters.FormatType.TEXT,
-        document_name_strategy: Optional[Union[formatters.DocumentNameStrategy, str]]=formatters.DocumentNameStrategy.TIMESTAMP,
-        proxies: Optional[PROXIES_T]=None,
-        formatter: Optional[formatters.TelegramBaseFormatter]=formatters.TelegramHTMLTextFormatter(),
-        additional_body: Optional[ADDITIONAL_BODY_T]=None,
-        level: Optional[str]=None
+        api_server: Optional[_api_server.TelegramAPIServer] = _api_server.PRODUCTION_SERVER,
+        format_type: Optional[Union[formatters.FormatType, str]] = formatters.FormatType.TEXT,
+        document_name_strategy: Optional[Union[formatters.DocumentNameStrategy, str]] = formatters.DocumentNameStrategy.TIMESTAMP,
+        proxies: Optional[PROXIES_T] = None,
+        formatter: Optional[formatters.TelegramBaseFormatter] = formatters.TelegramHTMLTextFormatter(),
+        additional_body: Optional[ADDITIONAL_BODY_T] = None,
+        level: Optional[str] = None
     ) -> None:
         if not isinstance(chat_ids, list):
             chat_ids = [chat_ids]
 
-        temp_chat_ids: CHAT_IDS_T = chat_ids.copy()
-
-        for index, chat_id in enumerate(temp_chat_ids, 0):
+        for index, chat_id in enumerate(chat_ids.copy(), 0):
             chat_id_class = type(chat_id)
 
             if chat_id_class not in (int, str):
                 raise ValueError("Chat ids are incorrect!")
 
-            if chat_id_class == str:
+            if chat_id_class is str:
                 if not chat_id:
                     raise ValueError(f"Chat id {chat_id!r} is incorrect!")
 
                 if chat_id[0] != "@":
                     chat_ids[index] = "@" + chat_id
 
-        self.queue: Queue = Queue()
+        self.queue = Queue()
 
         super().__init__(
             queue = self.queue
@@ -81,7 +79,7 @@ class TelegramMessageHandler(QueueHandler):
                 pass
 
         if not isinstance(format_type, formatters.FormatType):
-            raise ValueError("Only string or enum of formatters.FormatType can be passed.")
+            raise ValueError("Only string enum of formatters.FormatType can be passed")
 
         if isinstance(document_name_strategy, str):
             try:
@@ -90,14 +88,12 @@ class TelegramMessageHandler(QueueHandler):
                 pass
 
         if not isinstance(document_name_strategy, formatters.DocumentNameStrategy):
-            raise ValueError("Only string or enum of formatters.DocumentNameStrategy can be passed.")
+            raise ValueError("Only string or enum of formatters.DocumentNameStrategy can be passed")
 
         if level:
-            self.setLevel(
-                level = level
-            )
+            self.setLevel(level)
 
-        self.handler: InnerTelegramMessageHandler = InnerTelegramMessageHandler(
+        self.handler = InnerTelegramMessageHandler(
             bot_token = bot_token,
             chat_ids = chat_ids,
             api_server = api_server,
@@ -107,11 +103,9 @@ class TelegramMessageHandler(QueueHandler):
             additional_body = additional_body
         )
 
-        self.handler.setFormatter(
-            fmt = formatter
-        )
+        self.handler.setFormatter(formatter)
 
-        self.listener: QueueListener = QueueListener(
+        self.listener = QueueListener(
             self.queue,
             self.handler
         )
@@ -122,9 +116,7 @@ class TelegramMessageHandler(QueueHandler):
         if not isinstance(formatter, formatters.TelegramBaseFormatter):
             raise ValueError("Formatter class must be subclass of formatters.TelegramBaseFormatter")
 
-        self.handler.setFormatter(
-            fmt = formatter
-        )
+        self.handler.setFormatter(formatter)
 
     def prepare(self, record: logging.LogRecord) -> logging.LogRecord:
         return record
@@ -148,32 +140,32 @@ class InnerTelegramMessageHandler(logging.Handler):
         document_name_strategy: formatters.DocumentNameStrategy,
         proxies: Optional[PROXIES_T]=None,
         additional_body: Optional[ADDITIONAL_BODY_T]=None,
-        retries=3,
-        timeout=10.0,
+        retries: int = 3,
+        timeout: float = 10.0
     ):
-        self.bot_token: str = bot_token
-        self.chat_ids: CHAT_IDS_T = chat_ids
-        self.api_server: _api_server.TelegramAPIServer = api_server
-        self.format_type: formatters.FormatType = format_type
-        self.document_name_strategy: formatters.DocumentNameStrategy = document_name_strategy
-        self.additional_body: ADDITIONAL_BODY_T = additional_body or dict()
+        self.bot_token = bot_token
+        self.chat_ids = chat_ids
+        self.api_server = api_server
+        self.format_type = format_type
+        self.document_name_strategy = document_name_strategy
+        self.additional_body = additional_body or dict()
 
-        transport = _HTTPTransport(retries=retries)
+        transport = httpx.HTTPTransport(
+            retries = retries
+        )
 
-        self.http_client: _HTTPClient = _HTTPClient(
+        self.http_client = httpx.Client(
             proxies = proxies,
-            transport=transport,
-            timeout=timeout,
+            transport = transport,
+            timeout = timeout
         )
 
         super().__init__()
 
         self.formatter: formatters.TelegramBaseFormatter
 
-        self.reentry_barrier = False
-
     def _build_http_request_body(self, chat_id: int) -> REQUEST_BODY_T:
-        request_body: ADDITIONAL_BODY_T = self.additional_body.copy()
+        request_body = self.additional_body.copy()
         request_body["chat_id"] = chat_id
 
         if self.formatter.PARSE_MODE:
@@ -181,7 +173,7 @@ class InnerTelegramMessageHandler(logging.Handler):
 
         return request_body
 
-    def _check_telegram_answer(self, http_response: _HTTPResponse, chat_id: int) -> None:
+    def _check_telegram_answer(self, http_response: httpx.Response, chat_id: int) -> None:
         if http_response.status_code != 200:
             logger.warning(f"Request to Telegram got error: {http_response.status_code} | {http_response.text}")
 
@@ -191,13 +183,13 @@ class InnerTelegramMessageHandler(logging.Handler):
             logger.warning(f"""Failed to send log message to chat {chat_id}: {response_dict["description"]}""")
 
     def send_text_message(self, chat_id: int, text: str) -> None:
-        request_body: ADDITIONAL_BODY_T = self._build_http_request_body(
+        request_body = self._build_http_request_body(
             chat_id = chat_id
         )
 
         request_body["text"] = text
 
-        http_response: _HTTPResponse = self.http_client.post(
+        http_response = self.http_client.post(
             url = self.api_server.api_url(
                 bot_token = self.bot_token,
                 method = "sendMessage"
@@ -210,15 +202,15 @@ class InnerTelegramMessageHandler(logging.Handler):
             chat_id = chat_id
         )
 
-    def send_document_message(self, chat_id: int, filename: str, bytes_content: bytes, text: Optional[str]=None) -> None:
-        request_body: ADDITIONAL_BODY_T = self._build_http_request_body(
+    def send_document_message(self, chat_id: int, filename: str, encoded_content: bytes, text: Optional[str]=None) -> None:
+        request_body = self._build_http_request_body(
             chat_id = chat_id
         )
 
         if text:
             request_body["caption"] = text
 
-        http_response: _HTTPResponse = self.http_client.post(
+        http_response = self.http_client.post(
             url = self.api_server.api_url(
                 bot_token = self.bot_token,
                 method = "sendDocument"
@@ -226,10 +218,8 @@ class InnerTelegramMessageHandler(logging.Handler):
             data = request_body,
             files = {
                 "document": (
-                    "{filename}.txt".format(
-                        filename = filename
-                    ),
-                    bytes_content,
+                    f"{filename}.txt",
+                    encoded_content,
                     "text/plain"
                 )
             }
@@ -241,46 +231,40 @@ class InnerTelegramMessageHandler(logging.Handler):
         )
 
     def emit(self, record: logging.LogRecord) -> None:
-        self.formatter.prepare(
-            record = record
-        )
+        if self.document_name_strategy is formatters.DocumentNameStrategy.ARGUMENT and record.__dict__.get("document_name") is None:
+            raise ValueError("Document name must be provided in the record extra")
 
-        if self.format_type == formatters.FormatType.TEXT:
-            text_fragments: formatters.TEXT_FRAGMENTS_T = self.formatter.format_by_fragments(
-                record = record
-            )
+        self.formatter.prepare(record)
 
-        else:
-            bytes_content: bytes = self.formatter.format_raw(
-                record = record
-            ).encode("utf-8")
+        if self.format_type is formatters.FormatType.TEXT:
+            text_fragments = self.formatter.format_by_fragments(record)
 
-            tag_text: Union[str, None] = (
-                self.formatter.format_tag(
-                    record = record
-                )
-                if self.formatter.format_tag != formatters.TelegramBaseFormatter.format_tag
-                else
-                None
-            )
-
-        for chat_id in self.chat_ids:
-            if self.format_type == formatters.FormatType.TEXT:
+            for chat_id in self.chat_ids:
                 for text_fragment in text_fragments:
                     self.send_text_message(
                         chat_id = chat_id,
                         text = text_fragment
                     )
 
-            else:
+        else:
+            encoded_content = self.formatter.format_raw(record).encode("utf-8")
+
+            tag_text: Union[str, None] = (
+                self.formatter.format_tag(record)
+                if self.formatter.format_tag is not formatters.TelegramBaseFormatter.format_tag
+                else
+                None
+            )
+
+            for chat_id in self.chat_ids:
                 self.send_document_message(
                     chat_id = chat_id,
-                    filename = (
-                        str(int(record.created))
-                        if self.document_name_strategy == formatters.DocumentNameStrategy.TIMESTAMP
+                    filename = str(
+                        int(record.created)
+                        if self.document_name_strategy is formatters.DocumentNameStrategy.TIMESTAMP
                         else
                         record.__dict__["document_name"]
                     ),
-                    bytes_content = bytes_content,
+                    encoded_content = encoded_content,
                     text = tag_text
                 )

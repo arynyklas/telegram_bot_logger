@@ -1,8 +1,8 @@
-from html import escape as _html_escape
+import html
 
 
 def html_escape(string: str) -> str:
-    return _html_escape(
-        s = string,
+    return html.escape(
+        string,
         quote = False
     )

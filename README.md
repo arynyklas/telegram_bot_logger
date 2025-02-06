@@ -32,7 +32,7 @@ handler = telegram_bot_logger.TelegramMessageHandler(
     bot_token = "YOUR_BOT_TOKEN",  # Required; bot's token from @BotFather
     chat_ids = [
         12345678,
-        -100,  # For group chat id, make sure you pass the chat id as integer
+        -1001234567890,  # For group chat id, make sure you pass the chat id as integer
         "@username"
     ],  # Required; you can pass id as integer or username as string
     api_server = telegram_bot_logger.api_server.TelegramAPIServer(
@@ -42,23 +42,21 @@ handler = telegram_bot_logger.TelegramMessageHandler(
     document_name_strategy = "timestamp" or "TIMESTAMP" or telegram_bot_logger.formatters.DocumentNameStrategy.TIMESTAMP,  # Optional; used to define documents' names; also can be "ARGUMENT", by default it is "TIMESTAMP"
     proxies = {
         "http://": "http://localhost:8080"
-    } or "http://localhost:8080",  # Optional; "dict[scheme, url]" or just "url"
+    } or "http://localhost:8080",  # Optional; "dict[scheme, url]" or just "url", please see httpx's supported proxy types
     formatter = formatters.TelegramHTMLTextFormatter(),  # Optional; you can create your own class inherited from formatters.TelegramBaseFormatter and pass it
     additional_body = {
         "reply_to_message_id": 1
     }  # Optional; additional request body on sendMessage and sendDocument
 )
 
-logger.setLevel(
-    level = logging.DEBUG
-)
+logger.setLevel(logging.DEBUG)
 
 logger.addHandler(handler)
 
 
 logger.debug("debug-message")
 # Or:
-logger.debug("debug-message", extra={"document_name": 123})  # 123 is an argument; to use this feature you need to set format_type = formatters.FormatType.DOCUMENT and document_name_strategy = formatters.DocumentNameStrategy.ARGUMENT
+logger.debug("debug-message", extra={"document_name": 123})  # 123 is an argument; to use this feature you need to set `format_type = formatters.FormatType.DOCUMENT` and `document_name_strategy = formatters.DocumentNameStrategy.ARGUMENT` while initiating TelegramMessageHandler
 ```
 
 It is highly recommend using string formatters in log messages, as these are not expanded if the logging level is not high enough,
@@ -101,14 +99,14 @@ from telegram_bot_logger.formatters import TelegramHTMLTextFormatter
 
 # Fine tune our Telegram chat output
 formatter = TelegramHTMLTextFormatter()
-formatter._EMOTICONS[logging.EXAMPLE] = "📜"  # Patch in the custom log level if you have added any
+formatter._EMOTICONS[logging.DEBUG] = "📜"  # Patch in the emoticon by logging level
 formatter._TAG_FORMAT = ""  # Disable tags in the output
-formatter._HEADER_FORMAT = "<pre>{emoticon} {message}{description}</pre>"  # Disable line no + module in the output
+formatter._HEADER_FORMAT = "<pre>{emoticon} {message}{description}</pre>"  # Disable line number and module name in the output
 
 telegram_handler = telegram_bot_logger.TelegramMessageHandler(
-    bot_token = telegram_api_key,  # Required; bot's token from @BotFather
+    bot_token = "YOUR_BOT_TOKEN",
     chat_ids = [
-        int(telegram_chat_id)  # Make sure group chat ids are integer
+        -1001234567890,
     ],
     format_type = "text",
     formatter = formatter,
@@ -120,4 +118,4 @@ logging.getLogger().addHandler(telegram_handler)
 
 ## Stay Updated
 
-For the latest news and updates, follow my [Telegram Channel](https://t.me/aryn_dev).
+For the latest news and updates, follow my [Telegram Channel](https://aryn.sek.su/tg/dev).
