@@ -11,6 +11,10 @@ jobs:
     name: Build and publish Python package
     runs-on: ubuntu-latest
 
+    environment:
+      name: pypi
+      url: https://pypi.org/p/telegram_bot_logger
+
     permissions:
       id-token: write
 
