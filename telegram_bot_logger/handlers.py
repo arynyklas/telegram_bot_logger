@@ -155,7 +155,7 @@ class InnerTelegramMessageHandler(logging.Handler):
         )
 
         self.http_client = httpx.Client(
-            proxies = proxies,
+            proxy = proxies,
             transport = transport,
             timeout = timeout
         )
